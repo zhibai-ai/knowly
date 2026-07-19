@@ -1,0 +1,39 @@
+# RAG 模板：清洗 + 向量化到 Qdrant
+# 用法：knowly run --template rag-qdrant --input ./docs --output ./output
+pipeline:
+  input: ./docs
+  output: ./output
+
+  clean:
+    normalize:
+      fullwidth_to_halfwidth: true
+      traditional_to_simplified: true
+      trim_whitespace: true
+    dedup:
+      file_level:
+        method: hash
+      paragraph_level:
+        method: minhash
+        threshold: 0.85
+    chunking:
+      strategy: structure_aware
+      max_size: 500
+      overlap: 50
+
+  embed:
+    provider: dashscope
+    model: text-embedding-v3
+    dimensions: 1024
+    api_key: ${DASHSCOPE_API_KEY}
+    batch_size: 10
+    qps_limit: 10
+
+  sinks:
+    - type: markdown
+      dir: ./output/00-clean
+    - type: jsonl
+      path: ./output/01-chunks/chunks.jsonl
+    - type: qdrant
+      host: localhost
+      port: 6333
+      collection: knowly_chunks

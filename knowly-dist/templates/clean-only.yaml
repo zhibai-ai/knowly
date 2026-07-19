@@ -1,0 +1,23 @@
+# 清洗模板：纯文件产出（Markdown + JSONL），不落向量库
+# 用法：knowly run --template clean-only --input ./docs --output ./output
+pipeline:
+  input: ./docs
+  output: ./output
+
+  clean:
+    normalize:
+      fullwidth_to_halfwidth: true
+      traditional_to_simplified: true
+      trim_whitespace: true
+    dedup:
+      file_level:
+        method: hash
+      paragraph_level:
+        method: minhash
+        threshold: 0.85
+    chunking:
+      strategy: structure_aware
+      max_size: 500
+      overlap: 50
+
+  # 不配向量库 → 只产 Markdown + JSONL

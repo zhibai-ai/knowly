@@ -31,7 +31,7 @@
 ### 构建
 
 ```bash
-git clone https://github.com/AImusic/knowly.git
+git clone https://github.com/zhibai-ai/knowly.git
 cd knowly/knowly-server
 mvn clean install -DskipTests
 ```
