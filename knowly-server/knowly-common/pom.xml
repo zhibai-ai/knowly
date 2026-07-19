@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.knowly</groupId>
+        <artifactId>knowly-server</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>knowly-common</artifactId>
+    <name>knowly-common</name>
+    <description>通用工具：常量/枚举/异常/DTO/工具类。无业务逻辑，无 Web 依赖</description>
+
+    <dependencies>
+        <!-- MinHash/LSH（TextNormalizer 去重相关工具用到） -->
+        <dependency>
+            <groupId>com.clearspring.analytics</groupId>
+            <artifactId>stream</artifactId>
+        </dependency>
+        <!-- OpenCC4j 繁简转换 -->
+        <dependency>
+            <groupId>com.github.houbb</groupId>
+            <artifactId>opencc4j</artifactId>
+        </dependency>
+    </dependencies>
+</project>

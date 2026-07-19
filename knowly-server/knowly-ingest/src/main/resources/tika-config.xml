@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<properties>
+  <!-- 禁用 Tika 内置 OCR（知了的 OCR 由 PdfDocumentParser 控制） -->
+  <parsers>
+    <parser class="org.apache.tika.parser.DefaultParser">
+      <params>
+        <param name="excludeParsers" type="string">
+          org.apache.tika.parser.ocr.TesseractOCRParser
+        </param>
+      </params>
+    </parser>
+  </parsers>
+</properties>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.knowly</groupId>
+        <artifactId>knowly-server</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>knowly-embed</artifactId>
+    <name>knowly-embed</name>
+    <description>向量化与产出层：DashScopeEmbeddingProvider / MarkdownSink / JsonlSink / QdrantSink / PgVectorSink</description>
+
+    <dependencies>
+        <!-- 内核依赖 -->
+        <dependency>
+            <groupId>com.knowly</groupId>
+            <artifactId>knowly-core</artifactId>
+        </dependency>
+
+        <!-- DashScope Java SDK（阿里官方，embedding 用） -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>dashscope-sdk-java</artifactId>
+        </dependency>
+
+        <!-- PostgreSQL JDBC（PgVectorSink） -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <!-- Jackson JSON（JsonlSink + QdrantSink 用 REST API） -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+    </dependencies>
+</project>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.knowly</groupId>
+        <artifactId>knowly-server</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>knowly-clean</artifactId>
+    <name>knowly-clean</name>
+    <description>清洗层实现：DefaultTextCleaner / HashDedupStrategy / MinHashDedupStrategy / StructureAwareChunking / SemanticChunking</description>
+
+    <dependencies>
+        <!-- 内核依赖 -->
+        <dependency>
+            <groupId>com.knowly</groupId>
+            <artifactId>knowly-core</artifactId>
+        </dependency>
+        <!-- MinHash/LSH（段落级去重用） -->
+        <dependency>
+            <groupId>com.clearspring.analytics</groupId>
+            <artifactId>stream</artifactId>
+        </dependency>
+    </dependencies>
+</project>

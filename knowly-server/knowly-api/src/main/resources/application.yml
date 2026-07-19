@@ -1,0 +1,21 @@
+server:
+  port: 8080
+  address: 127.0.0.1  # 仅监听本机
+
+spring:
+  application:
+    name: knowly-api
+  servlet:
+    multipart:
+      max-file-size: 500MB  # 虽然知了不上传文件，但以防万一
+      max-request-size: 500MB
+
+logging:
+  level:
+    com.knowly: INFO
+    org.apache.tika: WARN
+    org.apache.pdfbox: WARN
+
+# 知了自定义配置
+knowly:
+  home: ${KNOWLY_HOME:${user.home}/.knowly}

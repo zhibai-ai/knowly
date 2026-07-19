@@ -1,0 +1,6 @@
+# 生成的样例文件不入库（由 generate_samples.py 程序化生成，避免大文件污染仓库）
+*.pdf
+*.docx
+*.png
+# 字体目录（由脚本抽取，不入库）
+.fonts/
