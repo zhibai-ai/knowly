@@ -27,6 +27,7 @@ public class JsonlSink implements ChunkSink {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final Path outputPath;
+    private boolean isFirstWrite = true;
 
     public JsonlSink(Path outputPath) {
         this.outputPath = outputPath;
@@ -43,6 +44,15 @@ public class JsonlSink implements ChunkSink {
         if (chunks.isEmpty()) return;
         try {
             Files.createDirectories(outputPath.getParent());
+            // 第一次写入时清空旧文件，之后追加
+            var openOptions = new java.util.ArrayList<StandardOpenOption>();
+            openOptions.add(StandardOpenOption.CREATE);
+            if (isFirstWrite) {
+                openOptions.add(StandardOpenOption.TRUNCATE_EXISTING);
+                isFirstWrite = false;
+            } else {
+                openOptions.add(StandardOpenOption.APPEND);
+            }
             // 追加模式（多次写入同文件）
             StringBuilder sb = new StringBuilder();
             for (TextChunk chunk : chunks) {
@@ -67,7 +77,7 @@ public class JsonlSink implements ChunkSink {
                 sb.append(MAPPER.writeValueAsString(json)).append("\n");
             }
             Files.writeString(outputPath, sb.toString(), StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    openOptions.toArray(new StandardOpenOption[0]));
             log.debug("JSONL 写入: {} ({} lines)", outputPath, chunks.size());
         } catch (IOException e) {
             throw new SinkException(ErrorCode.SINK_003, "JSONL 文件写入失败",

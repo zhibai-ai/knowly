@@ -35,6 +35,11 @@
             <artifactId>knowly-embed</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.knowly</groupId>
+            <artifactId>knowly-graph</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- YAML 配置解析 -->
         <dependency>

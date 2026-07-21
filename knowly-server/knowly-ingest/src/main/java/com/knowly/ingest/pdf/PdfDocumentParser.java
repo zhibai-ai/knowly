@@ -42,6 +42,9 @@ public class PdfDocumentParser implements DocumentParser {
     /** 扫描版判定阈值：每页平均字符数低于此值则判定为扫描版 */
     private static final int MIN_CHARS_PER_PAGE = 10;
 
+    /** 大页数扫描版 PDF 的 OCR 上限——超过此页数的扫描版 OCR 质量差且耗时极长，直接跳过 */
+    private static final int MAX_OCR_PAGES = 50;
+
     /** 扫描版 OCR 时 PDF 渲染 DPI */
     private static final int OCR_RENDER_DPI = 300;
 
@@ -105,6 +108,13 @@ public class PdfDocumentParser implements DocumentParser {
 
             if (isScanned && !isImageBasedPdf) {
                 // 真正的扫描版文字 PDF → 做 OCR
+                // 但如果页数太多（如 255 页竖版扫描），OCR 质量差且耗时极长（10-20分钟），直接跳过
+                if (pageCount > MAX_OCR_PAGES) {
+                    log.warn("扫描版 PDF 页数过多（{} 页 > {}），跳过 OCR 避免低质量产出: {}", pageCount, MAX_OCR_PAGES, filePath);
+                    throw new ParseException(ErrorCode.PARSE_004,
+                            "扫描版 PDF 页数过多，跳过 OCR",
+                            "file=" + filePath + ", pages=" + pageCount + ", max=" + MAX_OCR_PAGES);
+                }
                 log.info("检测到扫描版 PDF，转 OCR: {}, pages={}", filePath, pageCount);
                 content = ocrPdf(pdDoc, pageCount);
                 status = content.isBlank() ? ParseStatus.FAILED : ParseStatus.SUCCESS;

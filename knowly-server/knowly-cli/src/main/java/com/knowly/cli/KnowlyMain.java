@@ -36,6 +36,7 @@ public class KnowlyMain {
                 case "run" -> new RunCommand().execute(remainingArgs);
                 case "init" -> new InitCommand().execute(remainingArgs);
                 case "report" -> new ReportCommand().execute(remainingArgs);
+                case "graph" -> new com.knowly.cli.command.GraphCommand().execute(remainingArgs);
                 case "help", "--help", "-h" -> printHelp();
                 case "version", "--version", "-v" -> printVersion();
                 default -> {
@@ -61,6 +62,8 @@ public class KnowlyMain {
                 命令:
                   run      运行清洗流水线
                            knowly run --config pipeline.yaml --input ./docs --output ./kb
+                  graph    从清洗产出构建知识图谱
+                           knowly graph --input ./output/01-chunks/chunks.jsonl
                   init     生成模板配置文件
                            knowly init [--template <名称>]
                   report   查看处理报告
