@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react
 import { isLoggedIn, logout } from './services/api'
 import LoginPage from './pages/LoginPage'
 import WorkbenchPage from './pages/WorkbenchPage'
+import GraphPage from './pages/GraphPage'
 import SettingsPage from './pages/SettingsPage'
 
 /** 路由守卫：未登录跳登录页 */
@@ -17,8 +18,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function MainLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const navItems = [
-    { path: '/', label: '🧹 清洗工作台', icon: '🧹' },
-    { path: '/settings', label: '⚙️ 设置', icon: '⚙️' },
+    { path: '/', label: '🧹 清洗工作台' },
+    { path: '/graph', label: '🔗 知识图谱' },
+    { path: '/settings', label: '⚙️ 设置' },
   ]
 
   return (
@@ -71,6 +73,13 @@ export default function App() {
           <ProtectedRoute>
             <MainLayout>
               <WorkbenchPage />
+            </MainLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/graph" element={
+          <ProtectedRoute>
+            <MainLayout>
+              <GraphPage />
             </MainLayout>
           </ProtectedRoute>
         } />

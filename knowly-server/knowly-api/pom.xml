@@ -32,6 +32,10 @@
             <groupId>com.knowly</groupId>
             <artifactId>knowly-embed</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.knowly</groupId>
+            <artifactId>knowly-graph</artifactId>
+        </dependency>
 
         <!-- Spring Boot Web -->
         <dependency>

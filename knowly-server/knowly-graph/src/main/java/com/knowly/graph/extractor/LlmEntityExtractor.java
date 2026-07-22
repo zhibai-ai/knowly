@@ -28,8 +28,23 @@ public class LlmEntityExtractor implements EntityExtractor {
     private final DashScopeLlmProvider llm;
     private final List<String> entityTypes;
 
-    /** 默认实体类型（通用国学/中医场景） */
-    private static final List<String> DEFAULT_TYPES = List.of("方剂", "穴位", "概念", "人物", "经络", "脏腑", "卦象");
+    /** 默认实体类型（通用国学/中医场景）。砍掉"概念"——边界模糊，会把任意名词都塞进来。 */
+    private static final List<String> DEFAULT_TYPES = List.of("人物", "卦象", "典籍", "地理", "官职", "术数");
+
+    /** 实体类型的严格定义。LLM 必须据此判断，避免把描述性短语当实体。 */
+    private static final String TYPE_DEFINITIONS =
+            "各类型严格定义：\n" +
+            "- 人物：真实历史人物（如 周文王、孔子、倪海厦）。代词/称谓不算（如 圣人、大人、海厦兄 不是人物）。\n" +
+            "- 卦象：易经六十四卦名（如 乾、坤、屯、既济）或具体爻位（如 九五、上六）。卦辞/爻辞原文不算（如 亢龙有悔 是乾卦的辞，不是独立实体）。\n" +
+            "- 典籍：有正式书名的著作（如 周易、易经、黄帝内经）。\n" +
+            "- 地理：具体地名（如 长安、台湾）。\n" +
+            "- 官职：古代官职/制度名（如 丞相、御史大夫）。\n" +
+            "- 术数：山医命相卜等具体术数方法（如 六爻、风水、奇门遁甲）。\n" +
+            "\n反例（以下【不】算实体，禁止抽取）：\n" +
+            "- 段落描述语（如 穷之灾、广大包容、阴阳始交）\n" +
+            "- 成语/引文（如 同声相应、云从龙风从虎）\n" +
+            "- 普通名词（如 龙、月、大人、君德）\n" +
+            "- 抽象概念词（如 中正之德、人道、天道）";
 
     public LlmEntityExtractor(DashScopeLlmProvider llm) {
         this(llm, DEFAULT_TYPES);
@@ -76,11 +91,17 @@ public class LlmEntityExtractor implements EntityExtractor {
     }
 
     private String buildSystemPrompt() {
-        return "你是一个知识图谱实体抽取助手。" +
-                "从用户提供的文本中抽取实体，返回JSON格式。" +
-                "实体类型包括：" + String.join("、", entityTypes) + "。" +
-                "只抽取文本中明确出现的实体，不要猜测或编造。" +
-                "\n\n返回格式（严格JSON，不要加markdown代码块标记）：\n" +
+        return "你是一个知识图谱实体抽取助手，正在对**学术研究用国学/中医古籍文本**进行结构化分析。" +
+                "输入文本来自正式出版的学术与文化研究著作（如易经研究、中医典籍、命理学研究等），" +
+                "其中出现的命理、卦象、医学、哲学名词属于客观的传统文化知识描述，应如实抽取，" +
+                "用于构建学术研究用的知识图谱。本任务为客观知识结构化，不涉及价值判断。\n\n" +
+                TYPE_DEFINITIONS + "\n\n" +
+                "抽取要求：\n" +
+                "1. 只抽取符合上述定义的实体，宁可漏抽不可滥抽。\n" +
+                "2. 不要把卦辞、爻辞、引文、成语、描述性短语当实体。\n" +
+                "3. 每个实体必须能独立成为一个知识图谱节点，有明确的指代对象。\n" +
+                "4. 如果一段文本没有任何符合定义的实体，返回空数组。\n\n" +
+                "返回格式（严格JSON，不要加markdown代码块标记）：\n" +
                 "{\"entities\": [{\"name\": \"实体名\", \"type\": \"类型\", \"aliases\": [\"别名1\"]}]}";
     }
 

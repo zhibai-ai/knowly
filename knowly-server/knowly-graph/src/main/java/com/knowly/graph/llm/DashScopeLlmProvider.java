@@ -9,6 +9,7 @@ import com.knowly.common.exception.ParseException;
 import com.knowly.common.util.RateLimiter;
 import com.knowly.common.util.RetryTemplate;
 import com.knowly.core.spi.LlmProvider;
+import com.knowly.graph.GraphBuilder;
 import java.time.Duration;
 import java.util.List;
 import org.slf4j.Logger;
@@ -53,6 +54,9 @@ public class DashScopeLlmProvider implements LlmProvider {
         this.retryTemplate = RetryTemplate.builder()
                 .maxAttempts(maxRetries)
                 .exponentialBackoff(Duration.ofMillis(1000), 2.0, Duration.ofSeconds(30))
+                // 只重试可恢复异常（网络/限流/超时）；ContentModerationException 不在白名单内，
+                // RetryTemplate 会立即抛出，不浪费 3 次重试时间
+                .retryOn(com.knowly.common.exception.ParseException.class)
                 .build();
         log.info("DashScopeLlmProvider 初始化: model={}, qps={}", model, qpsLimit);
     }
@@ -64,6 +68,13 @@ public class DashScopeLlmProvider implements LlmProvider {
 
     /**
      * 带 system prompt 的对话。
+     *
+     * <p>错误处理：
+     * <ul>
+     *   <li>{@code DataInspectionFailed}（内容审核拦截）—— 不重试，直接抛
+     *       {@link GraphBuilder.ContentModerationException}，由 GraphBuilder 跳过该 chunk。</li>
+     *   <li>其他异常（网络/限流/超时）—— 走 RetryTemplate 指数退避重试。</li>
+     * </ul>
      */
     public String chatWithSystem(String systemPrompt, String userPrompt) {
         rateLimiter.acquire();
@@ -87,8 +98,14 @@ public class DashScopeLlmProvider implements LlmProvider {
                 log.debug("LLM 响应: model={}, 响应长度={}", model, text.length());
                 return text;
             } catch (Exception e) {
+                String msg = e.getMessage() == null ? "" : e.getMessage();
+                // 内容审核拦截——不可重试，抛 ContentModerationException 让上层跳过
+                if (msg.contains("DataInspectionFailed") || msg.contains("inappropriate content")) {
+                    log.debug("内容审核拦截（不重试）: {}", msg.length() > 120 ? msg.substring(0, 120) : msg);
+                    throw new GraphBuilder.ContentModerationException("内容审核拦截");
+                }
                 throw new ParseException(ErrorCode.EMBED_001, "LLM 调用失败",
-                        "model=" + model + ", cause=" + e.getMessage(), e);
+                        "model=" + model + ", cause=" + msg, e);
             }
         });
     }

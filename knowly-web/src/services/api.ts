@@ -207,6 +207,19 @@ export async function deleteTemplate(name: string): Promise<void> {
   await request(`/templates/${name}`, { method: 'DELETE' })
 }
 
+// ── 图谱构建 ──
+
+export async function buildGraph(jsonlPath: string): Promise<{ jobId: string }> {
+  return request('/graph/build', {
+    method: 'POST',
+    body: JSON.stringify({ jsonlPath }),
+  })
+}
+
+export async function getGraphStatus(): Promise<any> {
+  return request('/graph/status')
+}
+
 // ── 设置 ──
 
 export async function getSettings(): Promise<AppSettings> {
