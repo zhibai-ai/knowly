@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  browseFiles, createJob, getCurrentJob, getUnfinished,
+  browseFiles, createJob, getCurrentJob, getUnfinished, getFileHome,
   previewChunks as apiPreviewChunks, subscribeProgress, getOutputMarkdown,
   type FileEntry, type ChunkPreview, type JobStatus
 } from '../services/api'
 
 export default function WorkbenchPage() {
-  // ── 选文件 ──
-  const [currentPath, setCurrentPath] = useState(localStorage.getItem('knowly_lastPath') || '/data')
+  // ── 选文件（默认路径从后端动态获取，跨平台）──
+  const [currentPath, setCurrentPath] = useState(localStorage.getItem('knowly_lastPath') || '')
   const [entries, setEntries] = useState<FileEntry[]>([])
   const [selectedPath, setSelectedPath] = useState('')
   const [manualPath, setManualPath] = useState('')
@@ -42,20 +42,35 @@ export default function WorkbenchPage() {
   const eventSourceRef = useRef<EventSource | null>(null)
 
   useEffect(() => {
-    browse(currentPath)
+    // 首次加载：有缓存用缓存，否则从后端获取用户主目录（跨平台）
+    const initPath = async () => {
+      const cached = localStorage.getItem('knowly_lastPath')
+      if (cached) {
+        browse(cached)
+      } else {
+        try {
+          const home = await getFileHome()
+          browse(home)
+        } catch {
+          browse('')
+        }
+      }
+    }
+    initPath()
     checkUnfinished()
-    // 从后端获取默认输出目录（用带 token 的请求）
+    // 从后端获取默认输出目录（跨平台）
     fetch('/api/settings/default-output', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('knowly_token')}` }
     })
       .then(r => r.json())
       .then(d => { if (d.code === 0 && d.data) setOutputPath(d.data) })
-      .catch(() => setOutputPath('/data/knowly/knowly-output'))
+      .catch(() => setOutputPath(''))
     return () => { eventSourceRef.current?.close() }
   }, [])
 
   // ── 文件浏览 ──
   const browse = async (path: string) => {
+    if (!path) return
     try {
       const data = await browseFiles(path)
       setCurrentPath(data.path)
@@ -64,6 +79,28 @@ export default function WorkbenchPage() {
     } catch (err: any) {
       setProgressLogs(prev => [...prev, `浏览失败: ${err.message}`])
     }
+  }
+
+  /**
+   * 返回上级目录（跨平台：同时处理 / 和 \）。
+   * Windows 根盘符（如 D:\）已是根，不再上溯。
+   */
+  const goUp = () => {
+    if (!currentPath) return
+    // 同时按 / 和 \ 分割，取去掉最后一段后的路径
+    const sep = currentPath.includes('\\') ? '\\' : '/'
+    const parts = currentPath.split(/[\\/]/).filter(Boolean)
+    if (parts.length <= 1) {
+      // 已在根（如 D: 或 /），无法再上溯
+      // Windows 单盘符情况：回到盘符根 D:\
+      if (/^[A-Za-z]:$/.test(parts[0] || '')) {
+        browse(parts[0] + '\\')
+      }
+      return
+    }
+    parts.pop()
+    const parent = currentPath.startsWith('/') ? '/' + parts.join('/') : parts.join('\\')
+    browse(parent || (currentPath.includes('\\') ? 'C:\\' : '/'))
   }
 
   // 手动输入路径确认
@@ -88,16 +125,13 @@ export default function WorkbenchPage() {
     }
   }
 
-  // ── 分段预览（Web 核心价值，仅支持单个文件）──
-  const selectedIsDir = entries.some(e => e.path === selectedPath && e.isDirectory) || !selectedPath
+  // ── 分段预览（Web 核心价值）──
+  // 选文件：直接预览该文件；选目录：后端自动取首个文件作样本预览
+  const selectedIsDir = entries.some(e => e.path === selectedPath && e.isDirectory)
 
   const handlePreview = async () => {
     if (!selectedPath) {
-      alert('请先选择一个文件')
-      return
-    }
-    if (selectedIsDir) {
-      alert('分段预览只支持单个文件，不支持目录。请选择一个文件后再预览。')
+      alert('请先选择一个文件或目录')
       return
     }
     setPreviewLoading(true)
@@ -177,6 +211,12 @@ export default function WorkbenchPage() {
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: 24 }}>
       <h2 style={{ marginBottom: 16 }}>🧹 清洗工作台</h2>
 
+      {/* 使用引导 */}
+      <div style={{ marginBottom: 16, padding: '12px 16px', background: '#e6f7ff', border: '1px solid #91d5ff', borderRadius: 4, fontSize: 13, color: '#096dd9', lineHeight: 1.8 }}>
+        💡 <b>快速体验</b>：在左侧"直接输入路径"填入 <code style={{ background: '#fff', padding: '1px 4px', borderRadius: 2 }}>D:\develop\ai\zhibai\knowly\knowly-dist\examples\quickstart</code> 回车，
+        选一个文件点「分段预览」，满意后点「开始清洗」。该目录含 md/txt/html/损坏pdf 四种测试文件。
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
         {/* 左栏：选文件 + 配置 */}
         <div>
@@ -204,8 +244,8 @@ export default function WorkbenchPage() {
             <div style={{ marginBottom: 8, fontSize: 13, color: '#666' }}>浏览: {currentPath}</div>
             <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid #eee', borderRadius: 4 }}>
               {entries.length === 0 && <div style={{ padding: 12, color: '#999' }}>空目录</div>}
-              {currentPath !== '/' && (
-                <div onClick={() => browse(currentPath.substring(0, currentPath.lastIndexOf('/')) || '/')}
+              {currentPath && (
+                <div onClick={goUp}
                   style={{ padding: '6px 12px', cursor: 'pointer', color: '#1890ff', borderBottom: '1px solid #f0f0f0' }}>
                   📁 ..
                 </div>
@@ -269,9 +309,9 @@ export default function WorkbenchPage() {
 
           {/* 操作按钮 */}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handlePreview} disabled={previewLoading || isRunning || selectedIsDir}
-              style={{ padding: '8px 16px', background: selectedIsDir ? '#ccc' : '#52c41a', color: '#fff', border: 'none', borderRadius: 4, cursor: selectedIsDir ? 'not-allowed' : 'pointer' }}>
-              {previewLoading ? '预览中...' : selectedIsDir ? '🔍 预览（选文件后可用）' : '🔍 分段预览'}
+            <button onClick={handlePreview} disabled={previewLoading || isRunning || !selectedPath}
+              style={{ padding: '8px 16px', background: !selectedPath ? '#ccc' : '#52c41a', color: '#fff', border: 'none', borderRadius: 4, cursor: !selectedPath ? 'not-allowed' : 'pointer' }}>
+              {previewLoading ? '预览中...' : selectedIsDir ? '🔍 预览（取目录样本）' : '🔍 分段预览'}
             </button>
             <button onClick={handleStart} disabled={isRunning}
               style={{ padding: '8px 16px', background: '#1890ff', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>

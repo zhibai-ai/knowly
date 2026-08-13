@@ -1,0 +1,4 @@
+com.knowly.embed.sink.markdown.MarkdownSinkFactory
+com.knowly.embed.sink.jsonl.JsonlSinkFactory
+com.knowly.embed.sink.qdrant.QdrantSinkFactory
+com.knowly.embed.sink.pgvector.PgVectorSinkFactory

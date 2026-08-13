@@ -42,6 +42,13 @@ public class RuleBasedLayoutAnalyzer implements LayoutAnalyzer {
     public AnalyzedLayout analyze(Path filePath, String rawText) throws ParseException {
         log.debug("版面分析: {}", filePath);
 
+        // 版面分析仅适用于 PDF（基于 PDFBox 坐标提取）。非 PDF 文件直接返回原文本。
+        String fileName = filePath.getFileName().toString().toLowerCase();
+        if (!fileName.endsWith(".pdf")) {
+            log.debug("非 PDF 文件，跳过版面分析: {}", filePath);
+            return new AnalyzedLayout(rawText, false, List.of());
+        }
+
         try (PDDocument pdDoc = PDDocument.load(filePath.toFile())) {
             int pageCount = pdDoc.getNumberOfPages();
             float pageWidth = pdDoc.getPage(0).getMediaBox().getWidth();

@@ -1,5 +1,6 @@
 package com.knowly.api.controller;
 
+import com.knowly.api.common.ApiResponse;
 import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.nio.file.*;
@@ -7,17 +8,34 @@ import java.util.*;
 
 /**
  * 本机文件浏览接口。用户在 Web 上选择输入文件/目录。
+ *
+ * <p>路径安全：normalize 防穿越。v0.1 本机单用户，允许浏览任意本机目录，
+ * 但禁止含有 {@code ..} 穿越的路径被规范化后越界读取。
  */
 @RestController
 @RequestMapping("/api/files")
 public class FileController {
 
+    /** 返回用户主目录（作为目录浏览的跨平台默认起点） */
+    @GetMapping("/home")
+    public ApiResponse home() {
+        String home = System.getProperty("user.home");
+        return ApiResponse.ok(Map.of("path", home));
+    }
+
     @GetMapping("/browse")
-    public Map<String, Object> browse(@RequestParam(defaultValue = "/") String path) {
-        Path dir = Path.of(path);
-        if (!Files.isDirectory(dir)) {
-            return Map.of("code", -1, "message", "路径不存在或非目录: " + path);
+    public ApiResponse browse(@RequestParam(defaultValue = "/") String path) {
+        // normalize 防穿越（如 ../ 会被规整为真实绝对路径）
+        Path dir;
+        try {
+            dir = Path.of(path).toAbsolutePath().normalize();
+        } catch (InvalidPathException e) {
+            return ApiResponse.error("SEC_003", "非法路径: " + path);
         }
+        if (!Files.isDirectory(dir)) {
+            return ApiResponse.error("CONFIG_001", "路径不存在或非目录: " + dir);
+        }
+
         List<Map<String, Object>> entries = new ArrayList<>();
         try (var stream = Files.list(dir)) {
             stream.forEach(f -> {
@@ -31,7 +49,7 @@ public class FileController {
                 } catch (IOException ignored) {}
             });
         } catch (IOException e) {
-            return Map.of("code", -1, "message", "目录读取失败: " + path + ", " + e.getMessage());
+            return ApiResponse.error("CONFIG_001", "目录读取失败: " + dir + ", " + e.getMessage());
         }
         // 目录排前
         entries.sort((a, b) -> {
@@ -39,9 +57,6 @@ public class FileController {
             return dirCompare != 0 ? dirCompare : ((String) a.get("name")).compareToIgnoreCase((String) b.get("name"));
         });
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("code", 0);
-        result.put("data", Map.of("path", path, "entries", entries));
-        return result;
+        return ApiResponse.ok(Map.of("path", dir.toString(), "entries", entries));
     }
 }

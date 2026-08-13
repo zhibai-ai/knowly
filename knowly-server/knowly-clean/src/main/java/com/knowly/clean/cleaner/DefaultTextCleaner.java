@@ -78,12 +78,13 @@ public class DefaultTextCleaner implements TextCleaner {
         chain.add(this::removePageNumbers);
         chain.add(this::removeSeparatorLines);
         chain.add(this::reduceRepeatedPunctuation);
-        // 先繁简转换（统一文字后，水印检测才能准确命中跨页重复）
+        // 先繁简转换（统一文字后，后续去重/去水印才能准确命中跨页重复）
         chain.add(this::normalize);
-        // 再去水印（此时繁简已统一，页眉水印频率统计准确）
-        chain.add(this::removeWatermarkLines);
-        // 去重复段落（版权声明、版式说明等多次出现的多行段落）
+        // 先去重复段落（块级，精准）：版权声明/版式说明等多次出现的多行段落
+        // 必须在水印检测前——否则水印的行级频率统计会把正常重复段落当水印误伤
         chain.add(this::removeRepeatedParagraphs);
+        // 再去水印（行级）：此时版权块已处理，剩下的高频短行才是真水印
+        chain.add(this::removeWatermarkLines);
         return chain;
     }
 
@@ -137,7 +138,9 @@ public class DefaultTextCleaner implements TextCleaner {
             dedupedLines.add(dedupRepeatedChars(line.strip()));
         }
 
-        // 第一步：统计去重后的行频率，识别高频水印行
+        // 第一步：统计去重后的行频率，识别高频水印行。
+        // 阈值 5：页眉/页脚水印通常每页出现，5 页以上的文档才稳定命中；
+        // 提高阈值避免把正常重复短句（如章节小结、术语）误判为水印。
         Map<String, Integer> lineFreq = new HashMap<>();
         for (String line : dedupedLines) {
             if (!line.isEmpty() && line.length() <= 30) {
@@ -146,7 +149,7 @@ public class DefaultTextCleaner implements TextCleaner {
         }
         Set<String> watermarkLines = new HashSet<>();
         for (var entry : lineFreq.entrySet()) {
-            if (entry.getValue() >= 3) {
+            if (entry.getValue() >= 5) {
                 watermarkLines.add(entry.getKey());
             }
         }

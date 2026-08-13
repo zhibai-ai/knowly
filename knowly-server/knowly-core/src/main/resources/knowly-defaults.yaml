@@ -1,0 +1,71 @@
+# 知了 knowly 内置默认配置。
+# 用户配置 (--config pipeline.yaml) 和命令行参数会覆盖这里的值。
+# 三层合并由 ConfigLoader 完成。
+pipeline:
+  name: "默认清洗流水线"
+  # input/output 默认不设，由用户配置或命令行指定
+
+  state:
+    store: sqlite
+    path: .knowly/knowly.db   # 相对于 output，由 PipelineAssembler 绑定到 --output
+
+  stages:
+    ingest:
+      parsers: [pdf, doc, docx, image, generic]
+      layout_analysis: light         # 轻量版面分析（双栏检测/页眉页脚/标题层级）；off 关闭
+      ocr:
+        enabled: true
+        languages: [chi_sim, eng]
+        min_chars_per_page: 10
+
+    clean:
+      encoding: auto
+      normalize:
+        fullwidth_to_halfwidth: true
+        traditional_to_simplified: true   # 中文默认开
+        trim_whitespace: true
+      dedup:
+        file_level:
+          enabled: true
+          method: hash
+        paragraph_level:
+          enabled: true
+          method: minhash
+          threshold: 0.85
+      chunking:
+        strategy: structure_aware      # 两阶段分段（默认）
+        max_size: 500
+        overlap: 50
+        min_size: 50
+
+    embed:
+      provider: dashscope
+      model: text-embedding-v3
+      dimensions: 1024
+      api_key: ${DASHSCOPE_API_KEY}    # 从环境变量读
+      batch_size: 25
+      qps_limit: 10
+
+  # 默认 sink：不配向量库 → 只产 Markdown + JSONL（零运维）
+  # 路径写成相对于 output 的形式，由 PipelineAssembler 绑定到 --output 目录
+  sinks:
+    - type: markdown
+      dir: 00-clean
+      include_chunk_markers: true
+      keep_source_tree: false
+    - type: jsonl
+      path: 01-chunks/chunks.jsonl
+
+  error_handling:
+    on_file_failure: SKIP_AND_LOG
+    retry:
+      max: 3
+      backoff: exponential
+      jitter: true
+
+  concurrency:
+    ingest_threads: 4
+    clean_threads: 2
+    embed_threads: 2
+    sink_threads: 2
+    queue_capacity: 100

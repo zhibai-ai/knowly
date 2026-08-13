@@ -30,9 +30,9 @@ pipeline:
 
   sinks:
     - type: markdown
-      dir: ./output/00-clean
+      dir: 00-clean
     - type: jsonl
-      path: ./output/01-chunks/chunks.jsonl
+      path: 01-chunks/chunks.jsonl
     - type: qdrant
       host: localhost
       port: 6333

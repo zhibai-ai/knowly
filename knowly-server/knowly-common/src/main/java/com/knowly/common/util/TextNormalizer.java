@@ -52,19 +52,63 @@ public final class TextNormalizer {
 
     /**
      * 全角转半角。
-     * <p>全角 ASCII（\uFF01-\uFF5E）→ 半角（\u0021-\u007E）；全角空格 \u3000 → 半角空格。
+     *
+     * <p><b>只转 ASCII 字母/数字/基础标点的全角变体</b>，保留中文标点：
+     * <ul>
+     *   <li>全角空格 \u3000 → 半角空格</li>
+     *   <li>全角 ASCII 字母数字（Ａ-Ｚａ-ｚ０-９）→ 半角</li>
+     *   <li>全角基础标点（！＂＃＄％＆＇（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝～）→ 半角</li>
+     * </ul>
+     *
+     * <p><b>关键修正</b>：中文标点（，。、；：？！等）虽落在全角区，但属于中文内容，
+     * 不应被转成半角。否则"中医基础，阴阳五行"会变成"中医基础,阴阳五行"，破坏中文阅读体验。
+     * 故只转 ASCII 范围（U+FF01！~ U+FF5E~）中真正对应 ASCII 的字符，跳过中文专用标点。
+     *
+     * <p>判定方式：转换后若结果是 ASCII 可见字符（\u0021~\u007E）且非中文标点冲突区，
+     * 则保留转换。中文标点（U+3000-U+303F、U+FF01/FF0C/FF1A/FF1B/FF1F 等）单独白名单排除。
      */
     public static String fullwidthToHalfwidth(String text) {
         if (text == null) return null;
         char[] chars = text.toCharArray();
         for (int i = 0; i < chars.length; i++) {
-            if (chars[i] == '\u3000') {
+            char c = chars[i];
+            if (c == '\u3000') {
+                // 全角空格 → 半角空格
                 chars[i] = ' ';
-            } else if (chars[i] >= '\uFF01' && chars[i] <= '\uFF5E') {
-                chars[i] = (char) (chars[i] - 0xFEE0);
+            } else if (c >= '\uFF01' && c <= '\uFF5E' && !isChineseFullwidthPunctuation(c)) {
+                // 全角 ASCII 变体 → 半角（排除中文全角标点）
+                chars[i] = (char) (c - 0xFEE0);
             }
         }
         return new String(chars);
+    }
+
+    /**
+     * 判断字符是否为中文全角标点（不应转半角）。
+     *
+     * <p>这些字符虽在全角区（U+FF00 段），但是中文专用标点，转半角会破坏中文语义：
+     * ，（U+FF0C）、。（U+3002）、、（U+3001）、；（U+FF1B）、：（U+FF1A）、
+     * ？（U+FF1F）、！（U+FF01）、《》（U+300A/B）、「」『』（）等。
+     */
+    private static boolean isChineseFullwidthPunctuation(char c) {
+        // 中文全角标点白名单（这些转半角会破坏中文阅读，必须保留）
+        return c == '\uFF0C'   // ， 中文逗号
+                || c == '\uFF1B'  // ； 中文分号
+                || c == '\uFF1A'  // ： 中文冒号
+                || c == '\uFF1F'  // ？ 中文问号
+                || c == '\uFF01'  // ！ 中文叹号
+                || c == '\uFF08'  // （ 中文左括号
+                || c == '\uFF09'  // ） 中文右括号
+                || c == '\u3001'  // 、 中文顿号
+                || c == '\u3002'  // 。 中文句号
+                || c == '\u3010'  // 【
+                || c == '\u3011'  // 】
+                || c == '\u300A'  // 《
+                || c == '\u300B'  // 》
+                || c == '\u300C' || c == '\u300D'  // 「」
+                || c == '\u300E' || c == '\u300F'  // 『』
+                || c == '\u2014'  // — 破折号
+                || c == '\u2026'; // … 省略号
     }
 
     /**

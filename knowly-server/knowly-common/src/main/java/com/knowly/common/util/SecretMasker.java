@@ -47,13 +47,16 @@ public final class SecretMasker {
         StringBuffer sb = new StringBuffer();
         while (matcher.find()) {
             String full = matcher.group(0);
-            // 对于 password=xxx 格式，只脱敏 value 部分（group 5 是前缀，group 6 是值）
-            if (matcher.group(5) != null && matcher.group(6) != null) {
-                String prefix = matcher.group(5);
-                String value = matcher.group(6);
-                matcher.appendReplacement(sb, prefix + maskValue(value));
+            // 对于 password=xxx 格式，保留前缀只脱敏 value 部分：
+            // group(4) 是前缀（如 "password="），group(5) 是值（如 "knowly_dev"）
+            // 前三个分支（sk-/AKIA/ghp_）各自只有整体一个捕获组，走 else 分支整体脱敏
+            String prefix = matcher.group(4);
+            String value = matcher.group(5);
+            if (prefix != null && value != null) {
+                matcher.appendReplacement(sb,
+                        Matcher.quoteReplacement(prefix + maskValue(value)));
             } else {
-                matcher.appendReplacement(sb, maskValue(full));
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(maskValue(full)));
             }
         }
         matcher.appendTail(sb);

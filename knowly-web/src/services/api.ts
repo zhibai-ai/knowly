@@ -182,6 +182,12 @@ export async function getOutputChunks(outputPath: string, page = 1, size = 20): 
 
 // ── 文件浏览 ──
 
+/** 获取用户主目录（跨平台的目录浏览起点） */
+export async function getFileHome(): Promise<string> {
+  const data = await request<{ path: string }>('/files/home')
+  return data.path
+}
+
 export async function browseFiles(path: string): Promise<{ path: string; entries: FileEntry[] }> {
   return request(`/files/browse?path=${encodeURIComponent(path)}`)
 }

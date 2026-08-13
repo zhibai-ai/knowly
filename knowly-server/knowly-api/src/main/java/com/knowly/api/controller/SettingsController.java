@@ -22,14 +22,14 @@ public class SettingsController {
         initConfigTable();
     }
 
-    /** 返回默认输出目录（基于项目根目录，而非 JVM 工作目录） */
+    /** 返回默认输出目录（跨平台：基于用户主目录，非写死的 Linux 路径） */
     @GetMapping("/default-output")
     public Map<String, Object> getDefaultOutput() {
-        // 项目根目录 = 后端 jar 所在目录的上四级（knowly-server/knowly-api/target/xxx.jar → 项目根）
-        // 简化：用 KNOWLY_HOME 环境变量，或回退到固定路径
-        String projectRoot = System.getenv().getOrDefault("KNOWLY_HOME",
-                "/data/knowly");
-        String defaultOutput = projectRoot + "/knowly-output";
+        // 默认输出到 ~/knowly-output（user.home 跨平台：Windows 是 C:\Users\xxx）
+        // 可通过 KNOWLY_HOME 环境变量覆盖
+        String base = System.getenv().getOrDefault("KNOWLY_HOME",
+                System.getProperty("user.home") + "/.knowly");
+        String defaultOutput = Path.of(base, "knowly-output").toString();
         Map<String, Object> result = new HashMap<>();
         result.put("code", 0);
         result.put("data", defaultOutput);

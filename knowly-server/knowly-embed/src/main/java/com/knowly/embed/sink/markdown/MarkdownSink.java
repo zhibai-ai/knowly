@@ -86,11 +86,18 @@ public class MarkdownSink implements ChunkSink {
 
         for (TextChunk chunk : chunks) {
             ChunkMetadata meta = chunk.metadata();
-            // 章节标题变化时输出标题
-            if (meta != null && meta.sectionTitle() != null && !meta.sectionTitle().equals(currentSection)) {
+            // 章节标题变化时输出标题（空标题跳过——txt/html 等无标题文件的首个 chunk
+            // sectionTitle 为空字符串，不应输出孤零零的 "#" 空标题行）
+            if (meta != null && meta.sectionTitle() != null
+                    && !meta.sectionTitle().isBlank()
+                    && !meta.sectionTitle().equals(currentSection)) {
                 currentSection = meta.sectionTitle();
-                String prefix = "#".repeat(Math.max(1, meta.sectionLevel()));
-                sb.append(prefix).append(" ").append(currentSection).append("\n\n");
+                // sectionTitle 可能已含 Markdown 前缀（PreChunker 把整行标题存入，如 "# 第一章"），
+                // 也可能是不含 # 的纯文本（如中文编号"第一章"）。已含 # 则直接用，否则按层级补前缀。
+                String headingLine = currentSection.startsWith("#")
+                        ? currentSection
+                        : "#".repeat(Math.max(1, meta.sectionLevel())) + " " + currentSection;
+                sb.append(headingLine).append("\n\n");
             }
 
             // chunk 边界标记（HTML 注释，人眼不可见但程序可解析）

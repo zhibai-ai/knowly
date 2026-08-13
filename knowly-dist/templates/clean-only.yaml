@@ -1,5 +1,6 @@
 # 清洗模板：纯文件产出（Markdown + JSONL），不落向量库
 # 用法：knowly run --template clean-only --input ./docs --output ./output
+# sink 的 dir/path 相对于 --output 解析
 pipeline:
   input: ./docs
   output: ./output
@@ -20,4 +21,9 @@ pipeline:
       max_size: 500
       overlap: 50
 
-  # 不配向量库 → 只产 Markdown + JSONL
+  # sink 路径相对于 --output；不配向量库 → 只产 Markdown + JSONL
+  sinks:
+    - type: markdown
+      dir: 00-clean
+    - type: jsonl
+      path: 01-chunks/chunks.jsonl

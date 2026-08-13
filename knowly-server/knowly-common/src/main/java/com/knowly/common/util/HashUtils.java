@@ -58,6 +58,23 @@ public final class HashUtils {
         return documentId + "#" + ordinal;
     }
 
+    /**
+     * 派生清洗任务 ID（jobId）。
+     * <p>基于"输入路径 + 配置指纹"哈希——同输入同配置重跑复用同一 jobId，
+     * 保证断点续跑能匹配到上次的 job_files 记录。
+     *
+     * <p>这是断点续跑正确性的关键：若每次随机生成 jobId，重跑后旧记录全部匹配不上，
+     * 续跑永远不触发。参见架构文档 §12.2。
+     *
+     * @param inputPath        输入路径
+     * @param configFingerprint 配置指纹（通常是 PipelineConfig 的稳定哈希）
+     * @return jobId，如 "job-ab12cd34ef56"
+     */
+    public static String jobId(String inputPath, String configFingerprint) {
+        String hash = contentHash(inputPath + "|" + configFingerprint);
+        return "job-" + hash.substring(0, 12);
+    }
+
     /** byte[] 转十六进制小写字符串 */
     private static String bytesToHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder(bytes.length * 2);

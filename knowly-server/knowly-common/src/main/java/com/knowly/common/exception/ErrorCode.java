@@ -11,6 +11,9 @@ public final class ErrorCode {
     public static final String CONFIG_001 = "配置文件格式错误";
     public static final String CONFIG_002 = "必填配置项缺失";
     public static final String CONFIG_003 = "配置依赖关系不满足";
+    public static final String CONFIG_004 = "配置值非法";
+    public static final String CONFIG_005 = "未注册的组件类型";
+    public static final String CONFIG_006 = "环境变量解析失败";
 
     // ── 摄取层（INGEST）──
     public static final String PARSE_001 = "文档解析失败";

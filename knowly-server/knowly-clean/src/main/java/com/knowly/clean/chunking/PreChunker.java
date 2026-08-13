@@ -10,6 +10,15 @@ import java.util.regex.Pattern;
  * 阶段一：按结构边界切 pre-chunk。
  *
  * <p>只管"在哪切"，不管切出来的多大。遍历文本行，遇到结构边界（标题行）就切一刀。
+ *
+ * <p><b>领域解耦</b>：标题识别规则分两类：
+ * <ol>
+ *   <li>通用规则（内置，core 无领域依赖）：Markdown {@code #} 标题、中文章节编号模式（第X章/X、/（一）/1.1）</li>
+ *   <li>领域词表（外部注入，默认空）：如古籍的卦名/序名。由 {@code headingDictionary} 配置加载，
+ *       不硬编码进源码——违反"通用不绑领域"原则。</li>
+ * </ol>
+ * 知了作为通用清洗工具，core 不带任何领域词。国学场景通过配置
+ * {@code stages.ingest.heading_dictionary: headings-zh-classics.yaml} 启用卦名词表。
  */
 public class PreChunker {
 
@@ -26,42 +35,32 @@ public class PreChunker {
             + "|^\\d+\\.\\d+\\s",                          // 1.1 / 2.3.1
             Pattern.MULTILINE);
 
-    /** 无编号中文标题词表（常见于古籍/教材） */
-    private static final Set<String> CN_UNNUMBERED_HEADINGS = Set.of(
-            // 序言类
+    /** 默认通用无编号标题词表（仅含"序/前言/后记/目录"等跨领域通用的） */
+    private static final Set<String> DEFAULT_UNNUMBERED_HEADINGS = Set.of(
             "序", "自序", "他序", "校堪序", "校勘序", "前言", "后记", "跋",
             "自 序", "他 序", "校 堪 序", "校 勘 序", "前 言", "后 记",
-            // 目录类
             "目录", "目 录", "目录:", "目 录:", "contents", "Contents", "CONTENTS",
-            // 通识标题
-            "引言", "导言", "导论", "绪论", "概述", "综述", "结论", "结语", "附录",
-            // 易经/古籍专用
-            "乾为天", "坤为地", "水雷屯", "山水蒙", "水天需", "天水讼",
-            "地水师", "水地比", "风天小畜", "天泽履", "地天泰", "天地否",
-            "天火同人", "火天大有", "地山谦", "雷地豫", "泽雷随", "山风蛊",
-            "地泽临", "风地观", "火雷噬嗑", "山火贲", "山地剥", "地雷复",
-            "天雷无妄", "山天大畜", "山雷颐", "泽风大过", "坎为水", "离为火",
-            "泽山咸", "雷风恒", "天山遯", "雷天大壮", "火地晋", "地火明夷",
-            "风火家人", "火泽睽", "水山蹇", "雷水解", "山泽损", "风雷益",
-            "泽天夬", "天风姤", "泽地萃", "地风升", "泽水困", "水风井",
-            "泽火革", "火风鼎", "震为雷", "艮为山", "风山渐", "雷泽归妹",
-            "雷火丰", "火山旅", "巽为风", "兑为泽", "风水涣", "水泽节",
-            "风泽中孚", "雷山小过", "水火既济", "火水未济",
-            "乾卦", "坤卦", "屯卦", "蒙卦", "需卦", "讼卦",
-            "师卦", "比卦", "小畜", "履卦", "泰卦", "否卦",
-            "同人", "大有", "谦卦", "豫卦", "随卦", "蛊卦",
-            "临卦", "观卦", "噬嗑", "贲卦", "剥卦", "复卦",
-            "无妄", "大畜", "颐卦", "大过", "坎卦", "离卦",
-            "咸卦", "恒卦", "遁卦", "大壮", "晋卦", "明夷",
-            "家人", "睽卦", "蹇卦", "解卦", "损卦", "益卦",
-            "夬卦", "姤卦", "萃卦", "升卦", "困卦", "井卦",
-            "革卦", "鼎卦", "震卦", "艮卦", "渐卦", "归妹",
-            "丰卦", "旅卦", "巽卦", "兑卦", "涣卦", "节卦",
-            "中孚", "小过", "既济", "未济"
+            "引言", "导言", "导论", "绪论", "概述", "综述", "结论", "结语", "附录"
     );
 
     /** 标题最大长度（超过的不算标题） */
     private static final int MAX_HEADING_LENGTH = 40;
+
+    private final Set<String> unnumberedHeadings;
+
+    /** 默认构造：仅用通用词表（领域无关） */
+    public PreChunker() {
+        this(DEFAULT_UNNUMBERED_HEADINGS);
+    }
+
+    /**
+     * 自定义无编号标题词表。
+     *
+     * @param unnumberedHeadings 无编号标题词表（领域专用，如卦名）。可为 null 表示无。
+     */
+    public PreChunker(Set<String> unnumberedHeadings) {
+        this.unnumberedHeadings = unnumberedHeadings == null ? Set.of() : unnumberedHeadings;
+    }
 
     /**
      * 按结构边界切 pre-chunk。
@@ -121,8 +120,8 @@ public class PreChunker {
             return count;
         }
 
-        // 无编号中文标题（校堪序/自序/前言/卦名等）
-        if (CN_UNNUMBERED_HEADINGS.contains(line)) {
+        // 无编号标题（通用 + 领域词表）
+        if (unnumberedHeadings.contains(line)) {
             return 2;
         }
 
