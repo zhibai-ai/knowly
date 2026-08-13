@@ -21,8 +21,7 @@
         <module>knowly-embed</module>
         <module>knowly-cli</module>
         <module>knowly-api</module>
-        <!-- 以下模块后续逐步启用 -->
-        <!-- <module>knowly-graph</module> -->
+        <module>knowly-graph</module>
     </modules>
 
     <!-- ── 版本统一管理 ─────────────────────────────────────────── -->
@@ -51,6 +50,7 @@
         <pgjdbc.version>42.7.4</pgjdbc.version>
         <jackson.version>2.17.2</jackson.version>
         <opencc4j.version>1.8.0</opencc4j.version>
+        <neo4j-driver.version>5.23.0</neo4j-driver.version>
     </properties>
 
     <!-- ── 依赖统一声明（子模块按需引用，不自动继承）────────────── -->
@@ -80,6 +80,11 @@
             <dependency>
                 <groupId>com.knowly</groupId>
                 <artifactId>knowly-embed</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.knowly</groupId>
+                <artifactId>knowly-graph</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -184,6 +189,13 @@
                 <groupId>com.github.houbb</groupId>
                 <artifactId>opencc4j</artifactId>
                 <version>${opencc4j.version}</version>
+            </dependency>
+
+            <!-- Neo4j Java Driver -->
+            <dependency>
+                <groupId>org.neo4j.driver</groupId>
+                <artifactId>neo4j-java-driver</artifactId>
+                <version>${neo4j-driver.version}</version>
             </dependency>
 
             <!-- 测试 -->

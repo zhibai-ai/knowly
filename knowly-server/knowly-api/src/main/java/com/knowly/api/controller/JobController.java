@@ -88,16 +88,19 @@ public class JobController {
     public SseEmitter events() {
         SseEmitter emitter = new SseEmitter(0L);  // 不超时
 
+        final PipelineEventListener[] holder = new PipelineEventListener[1];
         PipelineEventListener listener = event -> {
             try {
                 String eventName = event.getClass().getSimpleName();
                 emitter.send(SseEmitter.event()
                         .name(eventName)
                         .data(event.toString()));
-            } catch (IOException e) {
-                emitter.completeWithError(e);
+            } catch (Exception e) {
+                // 客户端断开连接是正常的（刷新/关闭页面），不传播异常
+                if (holder[0] != null) jobService.removeSseListener(holder[0]);
             }
         };
+        holder[0] = listener;
 
         jobService.addSseListener(listener);
         emitter.onCompletion(() -> jobService.removeSseListener(listener));
