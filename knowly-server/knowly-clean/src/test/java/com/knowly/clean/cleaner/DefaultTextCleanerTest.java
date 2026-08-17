@@ -36,6 +36,21 @@ class DefaultTextCleanerTest {
     }
 
     @Test
+    void should_remove_print_marks() {
+        // Adobe 打印页脚（守一验收 P1：19.5% chunk 被污染，内容随页变化故频率统计打不中）
+        String text = "肾脏衰弱，糖份无法排出。\n"
+                + "列印日期/时间：02/04/2005 23:20:53\n"
+                + "列印页数：110\n"
+                + "正文继续讲糖尿病。\n"
+                + "打印页数：45\n"
+                + "打印日期/时间：03/05/2006 01:02:03";
+        String result = cleaner.clean(text, docWith(text));
+
+        assertThat(result).doesNotContain("列印").doesNotContain("打印页数").doesNotContain("打印日期");
+        assertThat(result).contains("肾脏衰弱").contains("正文继续讲糖尿病");
+    }
+
+    @Test
     void should_remove_separator_lines() {
         String text = "标题\n=========\n正文\n------";
         String result = cleaner.clean(text, docWith(text));

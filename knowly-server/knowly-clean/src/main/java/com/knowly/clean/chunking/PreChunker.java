@@ -47,6 +47,10 @@ public class PreChunker {
     private static final Pattern TOC_ENTRY_PATTERN = Pattern.compile(
             "\\.{3,}|…{2,}|。{3,}");
 
+    /** 目录标题（"目录/目 录/目錄/Contents"）——只切分不继承，防止后续正文被错标 */
+    private static final Pattern TOC_TITLE_PATTERN = Pattern.compile(
+            "(?i)^(目\\s*录|目\\s*錄|contents)$");
+
     /** 标题最大长度（超过的不算标题） */
     private static final int MAX_HEADING_LENGTH = 40;
 
@@ -91,9 +95,14 @@ public class PreChunker {
                     ));
                     currentBuffer.setLength(0);
                 }
-                // 更新当前章节标题
-                currentSectionTitle = trimmed;
-                sectionLevel = headingLevel;
+                // "目录"特殊处理：只作切分边界，不更新章节标题。
+                // 目录区之后的正文若迟迟遇不到下一个可识别标题（古籍正文标题格式不匹配），
+                // 会一路挂着"目 录"——守一验收 P2：失眠内容被错标成"目 录"。
+                // 目录标题对正文 chunk 无语义价值，宁空勿错。
+                if (!TOC_TITLE_PATTERN.matcher(trimmed).matches()) {
+                    currentSectionTitle = trimmed;
+                    sectionLevel = headingLevel;
+                }
             }
             currentBuffer.append(line).append("\n");
         }

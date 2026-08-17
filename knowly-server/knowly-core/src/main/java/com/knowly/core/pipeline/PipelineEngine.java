@@ -493,8 +493,17 @@ public class PipelineEngine implements AutoCloseable {
         List<EmbeddedChunk> embedded = new ArrayList<>(chunks.size());
         for (int i = 0; i < chunks.size(); i++) {
             TextChunk c = chunks.get(i);
+            // metadata 必须透传——PgVectorSink 的 section_title/source_path 从这里取。
+            // 曾传 Map.of() 致向量库这两个字段全空，需事后从 jsonl 回填。
+            Map<String, Object> meta = new java.util.HashMap<>();
+            if (c.metadata() != null) {
+                if (c.metadata().sectionTitle() != null) meta.put("sectionTitle", c.metadata().sectionTitle());
+                meta.put("sectionLevel", c.metadata().sectionLevel());
+                meta.put("startPage", c.metadata().startPage());
+            }
+            meta.put("sourcePath", doc.sourcePath());
             embedded.add(new EmbeddedChunk(c.id(), c.text(), embeddings.get(i),
-                    c.documentId(), Map.of()));
+                    c.documentId(), meta));
         }
         return embedded;
     }

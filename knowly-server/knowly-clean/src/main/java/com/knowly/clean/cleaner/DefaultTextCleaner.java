@@ -32,6 +32,12 @@ public class DefaultTextCleaner implements TextCleaner {
             Pattern.CASE_INSENSITIVE
     );
 
+    /** 打印水印行（Adobe 打印页脚）：如"列印日期/时间：02/04/2005 23:20:53""列印页数：110"及简体变体。
+     *  内容随页变化，行级频率统计打不中，必须模式匹配。 */
+    private static final Pattern PRINT_MARK_PATTERN = Pattern.compile(
+            "^(列印|打印)\\s*(日期|页数|頁數|时间|時間)(\\s*/\\s*(时间|時間))?\\s*[：:].*$"
+    );
+
     /** 连续横线/星号分隔线（常见水印/装饰） */
     private static final Pattern SEPARATOR_LINE_PATTERN = Pattern.compile(
             "(?m)^\\s*[-=*~_]{5,}\\s*$"
@@ -85,6 +91,9 @@ public class DefaultTextCleaner implements TextCleaner {
         chain.add(this::removeRepeatedParagraphs);
         // 再去水印（行级）：此时版权块已处理，剩下的高频短行才是真水印
         chain.add(this::removeWatermarkLines);
+        // 最后去打印水印（模式级）：Adobe 打印页脚"列印日期/时间/页数"每页内容变化，
+        // 频率统计打不中，必须正则（守一验收 P1：曾致 19.5% chunk 被污染）
+        chain.add(this::removePrintMarks);
         return chain;
     }
 
@@ -100,6 +109,13 @@ public class DefaultTextCleaner implements TextCleaner {
     /** 去页码行 */
     private String removePageNumbers(String text, RawDocument source) {
         return PAGE_NUMBER_PATTERN.matcher(text).replaceAll("");
+    }
+
+    /** 去打印水印行：Adobe Acrobat 打印产生的页脚，如"列印日期/时间：02/04/2005 23:20:53""列印页数：110" */
+    private String removePrintMarks(String text, RawDocument source) {
+        return java.util.Arrays.stream(text.split("\n", -1))
+                .filter(line -> !PRINT_MARK_PATTERN.matcher(line.strip()).matches())
+                .collect(java.util.stream.Collectors.joining("\n"));
     }
 
     /** 去分隔线（连续横线/星号） */
