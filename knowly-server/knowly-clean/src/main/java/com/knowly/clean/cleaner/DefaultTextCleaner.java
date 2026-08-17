@@ -26,9 +26,11 @@ import java.util.regex.Pattern;
  */
 public class DefaultTextCleaner implements TextCleaner {
 
-    /** 页码模式（如"第 12 页"、"Page 12"、"- 12 -"、"12/15"） */
+    /** 页码模式（如"第 12 页"、"Page 12"、"- 12 -"、"12/15"，以及 PDF 分页页脚的孤立数字行——
+     *  深检发现 13% chunk 的句中嵌着页码："对你来\n32\n说"被切断了句子）。
+     *  尾部 \\n? 连行尾换行一起删，避免留下空行碎片。 */
     private static final Pattern PAGE_NUMBER_PATTERN = Pattern.compile(
-            "(?m)^\\s*(第\\s*\\d+\\s*页|Page\\s*\\d+|-\\s*\\d+\\s*-|\\d+\\s*/\\s*\\d+)\\s*$",
+            "(?m)^\\s*(第\\s*\\d+\\s*页|Page\\s*\\d+|-\\s*\\d+\\s*-|\\d+\\s*/\\s*\\d+|\\d{1,4})\\s*\\r?\\n?",
             Pattern.CASE_INSENSITIVE
     );
 
@@ -36,6 +38,11 @@ public class DefaultTextCleaner implements TextCleaner {
      *  内容随页变化，行级频率统计打不中，必须模式匹配。 */
     private static final Pattern PRINT_MARK_PATTERN = Pattern.compile(
             "^(列印|打印)\\s*(日期|页数|頁數|时间|時間)(\\s*/\\s*(时间|時間))?\\s*[：:].*$"
+    );
+
+    /** 下载站水印行（来源站整行广告）：知盈/豆丁/道客巴巴等 */
+    private static final Pattern DOWNLOAD_MARK_PATTERN = Pattern.compile(
+            "(知盈医学|豆丁网|道客巴巴|百度文库|万部医学书籍|下载器所生成|更多资料|本资料来自)"
     );
 
     /** 连续横线/星号分隔线（常见水印/装饰） */
@@ -111,10 +118,11 @@ public class DefaultTextCleaner implements TextCleaner {
         return PAGE_NUMBER_PATTERN.matcher(text).replaceAll("");
     }
 
-    /** 去打印水印行：Adobe Acrobat 打印产生的页脚，如"列印日期/时间：02/04/2005 23:20:53""列印页数：110" */
+    /** 去打印水印行：Adobe Acrobat 打印产生的页脚 + 下载站整行水印 */
     private String removePrintMarks(String text, RawDocument source) {
         return java.util.Arrays.stream(text.split("\n", -1))
                 .filter(line -> !PRINT_MARK_PATTERN.matcher(line.strip()).matches())
+                .filter(line -> !DOWNLOAD_MARK_PATTERN.matcher(line).find())
                 .collect(java.util.stream.Collectors.joining("\n"));
     }
 

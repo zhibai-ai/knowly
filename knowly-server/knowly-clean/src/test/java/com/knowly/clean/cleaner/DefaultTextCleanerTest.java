@@ -51,6 +51,27 @@ class DefaultTextCleanerTest {
     }
 
     @Test
+    void should_remove_page_number_inside_sentence() {
+        // 深检发现：PDF 分页页脚数字嵌在句子中间（"对你来\n32\n说"切断句子），13% chunk 中招
+        String text = "对你来\n32\n说，这是形。\n副肾皮\n97\n质荷尔蒙将瘀斑逼回心脏。";
+        String result = cleaner.clean(text, docWith(text));
+
+        // 页码行连同换行一起删除，句子两半紧邻（至多残留一个换行）
+        assertThat(result).doesNotContain("\n32").doesNotContain("\n97").doesNotContain("32\n").doesNotContain("97\n");
+        assertThat(result.replaceAll("\\s", "")).contains("对你来说").contains("副肾皮质荷尔蒙");
+    }
+
+    @Test
+    void should_remove_download_site_marks() {
+        // 深检发现：来源下载站整行广告水印（知盈/豆丁等）
+        String text = "正文讲方剂。\n→知盈医学资源网http://w.knowwing.com 万部医学书籍视频免费下载\n继续正文。";
+        String result = cleaner.clean(text, docWith(text));
+
+        assertThat(result).doesNotContain("知盈").doesNotContain("免费下载");
+        assertThat(result).contains("正文讲方剂").contains("继续正文");
+    }
+
+    @Test
     void should_remove_separator_lines() {
         String text = "标题\n=========\n正文\n------";
         String result = cleaner.clean(text, docWith(text));
