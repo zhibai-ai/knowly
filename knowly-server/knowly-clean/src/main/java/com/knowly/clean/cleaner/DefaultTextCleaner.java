@@ -45,6 +45,11 @@ public class DefaultTextCleaner implements TextCleaner {
             "(知盈医学|豆丁网|道客巴巴|百度文库|万部医学书籍|下载器所生成|更多资料|本资料来自)"
     );
 
+    /** 整理者水印行（民间整理者页眉）：QQ号 / 整理与配图署名 / "第N页共M页"（守一P2） */
+    private static final Pattern CURATOR_MARK_PATTERN = Pattern.compile(
+            "(QQ[：:]?\\s*\\d{5,12}|整理与配图|第\\s*\\d+\\s*页\\s*共\\s*\\d+\\s*页)"
+    );
+
     /** 连续横线/星号分隔线（常见水印/装饰） */
     private static final Pattern SEPARATOR_LINE_PATTERN = Pattern.compile(
             "(?m)^\\s*[-=*~_]{5,}\\s*$"
@@ -118,11 +123,12 @@ public class DefaultTextCleaner implements TextCleaner {
         return PAGE_NUMBER_PATTERN.matcher(text).replaceAll("");
     }
 
-    /** 去打印水印行：Adobe Acrobat 打印产生的页脚 + 下载站整行水印 */
+    /** 去打印水印行：Adobe 打印页脚 + 下载站整行水印 + 整理者水印 */
     private String removePrintMarks(String text, RawDocument source) {
         return java.util.Arrays.stream(text.split("\n", -1))
                 .filter(line -> !PRINT_MARK_PATTERN.matcher(line.strip()).matches())
                 .filter(line -> !DOWNLOAD_MARK_PATTERN.matcher(line).find())
+                .filter(line -> !CURATOR_MARK_PATTERN.matcher(line).find())
                 .collect(java.util.stream.Collectors.joining("\n"));
     }
 
