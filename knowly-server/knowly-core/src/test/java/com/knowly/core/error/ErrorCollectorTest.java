@@ -55,4 +55,17 @@ class ErrorCollectorTest {
         assertThat(collector.getFailures().get(0).documentId()).isNull();
         assertThat(collector.failureCount()).isEqualTo(1);
     }
+
+    @Test
+    void failureCount_counts_distinct_files_not_records() {
+        // 同一文件多阶段失败（INGEST+SINK 各记一条）→ 失败文件数计 1，与 succeeded 同口径
+        // （守一验收：processing-report 曾现 62+14=76>63 的算术矛盾）
+        ErrorCollector collector = new ErrorCollector();
+        collector.record("/a.pdf", null, "INGEST", "E1", "m1");
+        collector.record("/a.pdf", null, "SINK", "E2", "m2");
+        collector.record("/b.pdf", null, "INGEST", "E1", "m1");
+
+        assertThat(collector.getFailures()).hasSize(3);   // 明细保留全部记录
+        assertThat(collector.failureCount()).isEqualTo(2); // 文件数去重
+    }
 }

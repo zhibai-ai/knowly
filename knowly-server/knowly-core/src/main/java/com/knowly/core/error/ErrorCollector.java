@@ -32,9 +32,10 @@ public class ErrorCollector {
         return List.copyOf(failures);
     }
 
-    /** 失败总数 */
+    /** 失败文件数（按路径去重——同一文件多阶段失败只计一次，与 succeeded 同口径。
+     *  曾直接返回记录条数，致 processing-report 出现 62+14=76>63 的算术矛盾）。 */
     public int failureCount() {
-        return failures.size();
+        return (int) failures.stream().map(FailureRecord::filePath).distinct().count();
     }
 
     /** 是否有失败 */
