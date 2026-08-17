@@ -26,8 +26,8 @@ public class LlmRelationExtractor implements RelationExtractor {
     private final DashScopeLlmProvider llm;
     private final List<String> relationTypes;
 
-    /** 默认关系类型 */
-    private static final List<String> DEFAULT_TYPES = List.of("组成", "主治", "相关", "生克", "归属", "属于", "包含", "位于");
+    /** 默认关系类型（跨领域通用；特定领域如中医/易卦通过构造器注入，不硬编码进源码） */
+    private static final List<String> DEFAULT_TYPES = List.of("相关", "组成", "包含", "属于", "位于", "产生", "影响");
 
     public LlmRelationExtractor(DashScopeLlmProvider llm) {
         this(llm, DEFAULT_TYPES);
@@ -63,7 +63,8 @@ public class LlmRelationExtractor implements RelationExtractor {
                 "从用户提供的文本中，针对以下已知实体，抽取它们之间的关系。\n" +
                 "已知实体：\n" + entityList +
                 "\n关系类型包括：" + String.join("、", relationTypes) + "。" +
-                "只抽取文本中明确体现的关系，不要猜测。\n" +
+                "抽取文本中明确体现或可合理推断的关系——即使关系不是显式陈述的，" +
+                "只要上下文支持即可抽取（如某物象征某概念、某元素组成某整体）。\n" +
                 "source 和 target 必须是已知实体列表中的名称。\n\n" +
                 "返回格式（严格JSON，不要加markdown代码块标记）：\n" +
                 "{\"relations\": [{\"source\": \"实体A名\", \"target\": \"实体B名\", \"type\": \"关系类型\", \"confidence\": 0.9}]}";

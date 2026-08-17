@@ -28,8 +28,8 @@ public class LlmEntityExtractor implements EntityExtractor {
     private final DashScopeLlmProvider llm;
     private final List<String> entityTypes;
 
-    /** 默认实体类型（通用国学/中医场景） */
-    private static final List<String> DEFAULT_TYPES = List.of("方剂", "穴位", "概念", "人物", "经络", "脏腑", "卦象");
+    /** 默认实体类型（跨领域通用；特定领域如中医/易卦通过构造器注入，不硬编码进源码） */
+    private static final List<String> DEFAULT_TYPES = List.of("人物", "概念", "物品", "地点", "事件");
 
     public LlmEntityExtractor(DashScopeLlmProvider llm) {
         this(llm, DEFAULT_TYPES);
@@ -79,7 +79,8 @@ public class LlmEntityExtractor implements EntityExtractor {
         return "你是一个知识图谱实体抽取助手。" +
                 "从用户提供的文本中抽取实体，返回JSON格式。" +
                 "实体类型包括：" + String.join("、", entityTypes) + "。" +
-                "只抽取文本中明确出现的实体，不要猜测或编造。" +
+                "只抽取文本中明确出现的、有独立意义的实体，不要把普通名词、修饰语或动作当实体。" +
+                "**每段文本最多抽取 15 个最重要的核心实体，宁缺毋滥。**" +
                 "\n\n返回格式（严格JSON，不要加markdown代码块标记）：\n" +
                 "{\"entities\": [{\"name\": \"实体名\", \"type\": \"类型\", \"aliases\": [\"别名1\"]}]}";
     }

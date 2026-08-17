@@ -58,7 +58,7 @@ public class JobService {
      * @param sinkTypes    sink 类型列表（前端选择；若为空用配置默认）
      */
     @Async
-    public void startJob(String jobId, String inputPath, String outputPath, List<String> sinkTypes) {
+    public void startJob(String jobId, List<String> inputPaths, String outputPath, List<String> sinkTypes) {
         // 互斥占用
         if (!occupied.compareAndSet(false, true)) {
             log.warn("互斥拦截：已有任务在运行，jobId={} 被拒绝", jobId);
@@ -66,11 +66,13 @@ public class JobService {
         }
 
         try {
-            log.info("清洗任务启动: jobId={}, input={}, output={}, sinks={}", jobId, inputPath, outputPath, sinkTypes);
+            log.info("清洗任务启动: jobId={}, inputs={}, output={}, sinks={}",
+                    jobId, inputPaths, outputPath, sinkTypes);
 
             // ── 加载配置（三层合并，命令行覆盖 input/output）──
             java.util.Map<String, String> cliOverrides = new java.util.HashMap<>();
-            cliOverrides.put("pipeline.input", inputPath);
+            // 配置层只放首个路径（ConfigLoader 会校验路径存在性）；真实多路径输入由 engine 显式传参
+            cliOverrides.put("pipeline.input", inputPaths.get(0));
             cliOverrides.put("pipeline.output", outputPath);
             // 若前端传了 sink 选择，覆盖配置的 sinks 段
             PipelineConfig baseConfig = ConfigLoader.load(null, cliOverrides);
@@ -129,7 +131,8 @@ public class JobService {
             });
 
             currentJobId = jobId;
-            var stats = engine.execute(jobId, Path.of(inputPath), Path.of(outputPath));
+            List<Path> inputDirList = inputPaths.stream().map(Path::of).toList();
+            var stats = engine.execute(jobId, inputDirList, Path.of(outputPath));
             lastStats = stats;
 
         } catch (Exception e) {

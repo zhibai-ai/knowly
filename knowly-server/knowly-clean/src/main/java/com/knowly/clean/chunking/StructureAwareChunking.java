@@ -89,7 +89,6 @@ public class StructureAwareChunking implements com.knowly.core.spi.ChunkingStrat
             if (preChunkLen > maxSize) {
                 // 1) pre-chunk 太大 → 先 flush buffer，再二次切分 pre-chunk
                 ordinal = flushBuffer(doc, buffer, bufferSectionTitle, bufferSectionLevel, result, ordinal);
-                buffer.setLength(0);
 
                 List<String> splitParts = splitLargeText(preChunk.text(), maxSize);
                 // 合并最后一个碎块到前一个（避免产出极小 chunk）
@@ -120,7 +119,6 @@ public class StructureAwareChunking implements com.knowly.core.spi.ChunkingStrat
             } else {
                 // 3) pre-chunk 大小合适 → 先 flush buffer，再直接作为一个 chunk
                 ordinal = flushBuffer(doc, buffer, bufferSectionTitle, bufferSectionLevel, result, ordinal);
-                buffer.setLength(0);
 
                 result.add(createChunk(doc, ordinal, preChunk.text(), preChunk.sectionTitle(), preChunk.sectionLevel()));
                 ordinal++;
@@ -186,12 +184,15 @@ public class StructureAwareChunking implements com.knowly.core.spi.ChunkingStrat
         return merged;
     }
 
-    /** flush buffer 为一个 chunk（过滤无意义碎片） */
+    /** flush buffer 为一个 chunk（过滤无意义碎片），并清空 buffer。
+     *  注意：清空必须在此处统一完成——曾经只在"超大 pre-chunk"分支手动清空，
+     *  "buffer 满"分支漏清导致内容跨 chunk 累积重复（目录页大量小行时必现）。 */
     private int flushBuffer(RawDocument doc, StringBuilder buffer,
                             String sectionTitle, int sectionLevel,
                             List<TextChunk> result, int ordinal) {
         if (buffer.isEmpty()) return ordinal;
         String text = buffer.toString().strip();
+        buffer.setLength(0);  // 无论是否产出 chunk，buffer 都必须清空
         if (!text.isEmpty()) {
             result.add(createChunk(doc, ordinal, text, sectionTitle, sectionLevel));
             return ordinal + 1;

@@ -43,6 +43,10 @@ public class PreChunker {
             "引言", "导言", "导论", "绪论", "概述", "综述", "结论", "结语", "附录"
     );
 
+    /** 目录条目模式：3 个以上连续 ASCII 点或省略号（后跟页码），如 "乾为天.......... 捌" */
+    private static final Pattern TOC_ENTRY_PATTERN = Pattern.compile(
+            "\\.{3,}|…{2,}|。{3,}");
+
     /** 标题最大长度（超过的不算标题） */
     private static final int MAX_HEADING_LENGTH = 40;
 
@@ -112,6 +116,12 @@ public class PreChunker {
     private int detectHeadingLevel(String line) {
         if (line == null || line.isEmpty()) return 0;
         if (line.length() > MAX_HEADING_LENGTH) return 0;
+
+        // 目录条目行：含引导点（....../……）+尾随页码 → 不是标题。
+        // 典型形态："一、乾为天䷀.......... 捌"、"序 言........ 壹"。
+        // 不排除的话，目录页每行都成"标题"，切出 N 个 23 字小 pre-chunk，
+        // 触发碎片合并的病态路径（曾致地脉道目录区 42 个累积重复 chunk）。
+        if (TOC_ENTRY_PATTERN.matcher(line).find()) return 0;
 
         // Markdown 标题
         if (MD_HEADING_PATTERN.matcher(line).matches()) {

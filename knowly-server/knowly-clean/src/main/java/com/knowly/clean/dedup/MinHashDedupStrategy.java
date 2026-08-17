@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,8 +38,14 @@ public class MinHashDedupStrategy implements DedupStrategy {
 
     private final double threshold;
 
-    /** 已处理过的 chunk 特征（用于比对） */
-    private final List<ChunkFeatures> processed = new ArrayList<>();
+    /**
+     * 已处理过的 chunk 特征（用于比对）。
+     * 线程安全：本策略实例被流水线共享，多文件并发调 checkChunks——
+     * 一个线程 add 时另一个线程在遍历，普通 ArrayList 会抛 ConcurrentModificationException
+     * （曾致并发清洗时随机文件失败 cause=null）。CopyOnWriteArrayList 遍历拿快照，写复制开销
+     * 在单次清洗几千 chunk 的量级下可忽略。
+     */
+    private final List<ChunkFeatures> processed = new CopyOnWriteArrayList<>();
 
     public MinHashDedupStrategy() {
         this(DEFAULT_THRESHOLD);

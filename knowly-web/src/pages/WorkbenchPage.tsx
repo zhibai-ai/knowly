@@ -11,6 +11,8 @@ export default function WorkbenchPage() {
   const [entries, setEntries] = useState<FileEntry[]>([])
   const [selectedPath, setSelectedPath] = useState('')
   const [manualPath, setManualPath] = useState('')
+  // 多选清单：勾选的文件/目录（批量清洗）
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([])
 
   // ── 清洗参数 ──
   const [maxSize, setMaxSize] = useState(500)
@@ -119,6 +121,11 @@ export default function WorkbenchPage() {
     setSelectedPath(entry.path)
   }
 
+  // 勾选/取消勾选（多选清单——批量清洗用）
+  const toggleSelect = (path: string) => {
+    setSelectedFiles(prev => prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path])
+  }
+
   const enterDir = (entry: FileEntry) => {
     if (entry.isDirectory) {
       browse(entry.path)
@@ -149,10 +156,11 @@ export default function WorkbenchPage() {
     }
   }
 
-  // ── 开始清洗 ──
+  // ── 开始清洗（多选清单优先，回退单选路径）──
   const handleStart = async () => {
-    if (!selectedPath) {
-      alert('请先选择输入文件或目录')
+    const inputs = selectedFiles.length > 0 ? selectedFiles : (selectedPath ? [selectedPath] : [])
+    if (inputs.length === 0) {
+      alert('请先选择输入文件或目录（可勾选多个批量清洗）')
       return
     }
     setProgressLogs([])
@@ -161,7 +169,7 @@ export default function WorkbenchPage() {
     try {
       // 先建立 SSE 连接，再创建任务，避免漏掉前几个事件
       subscribeProgressEvents()
-      await createJob(selectedPath, outputPath, sinks)
+      await createJob(inputs, outputPath, sinks)
     } catch (err: any) {
       alert('启动失败: ' + err.message)
       setIsRunning(false)
@@ -255,10 +263,16 @@ export default function WorkbenchPage() {
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '6px 12px', borderBottom: '1px solid #f0f0f0',
-                    background: selectedPath === entry.path ? '#e6f7ff' : 'transparent',
+                    background: selectedFiles.includes(entry.path) ? '#f6ffed'
+                      : (selectedPath === entry.path ? '#e6f7ff' : 'transparent'),
                   }}>
+                  <input type="checkbox"
+                    checked={selectedFiles.includes(entry.path)}
+                    onChange={() => toggleSelect(entry.path)}
+                    title="勾选加入批量清洗清单"
+                    style={{ marginRight: 8, cursor: 'pointer' }} />
                   <div onClick={() => selectFile(entry)}
-                    style={{ flex: 1, cursor: 'pointer' }}>
+                    style={{ flex: 1, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {entry.isDirectory ? '📁' : '📄'} {entry.name}
                   </div>
                   {entry.isDirectory && (
@@ -270,9 +284,25 @@ export default function WorkbenchPage() {
                 </div>
               ))}
             </div>
-            {selectedPath && (
+            {selectedPath && selectedFiles.length === 0 && (
               <div style={{ marginTop: 8, fontSize: 13, color: '#1890ff' }}>
                 已选: {selectedPath}
+              </div>
+            )}
+            {selectedFiles.length > 0 && (
+              <div style={{ marginTop: 8, padding: 8, background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 4 }}>
+                <div style={{ fontSize: 13, color: '#389e0d', marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                  <span>✅ 已勾选 {selectedFiles.length} 项（将批量清洗）</span>
+                  <span onClick={() => setSelectedFiles([])} style={{ cursor: 'pointer', color: '#f5222d' }}>清空</span>
+                </div>
+                <div style={{ maxHeight: 96, overflowY: 'auto' }}>
+                  {selectedFiles.map(p => (
+                    <div key={p} style={{ display: 'flex', alignItems: 'center', fontSize: 12, color: '#555', lineHeight: '20px' }}>
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p}</span>
+                      <span onClick={() => toggleSelect(p)} style={{ cursor: 'pointer', color: '#f5222d', padding: '0 4px' }}>✕</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

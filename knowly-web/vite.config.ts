@@ -8,7 +8,9 @@ export default defineConfig({
     // API 请求代理到后端（开发时前后端分离，但都跑本机）
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: process.env.KNOWLY_API_PORT
+          ? `http://localhost:${process.env.KNOWLY_API_PORT}`
+          : 'http://localhost:8095',
         changeOrigin: true,
       },
     },

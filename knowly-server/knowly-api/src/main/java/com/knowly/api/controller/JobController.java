@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -30,24 +31,35 @@ public class JobController {
         this.jobService = jobService;
     }
 
-    /** 创建清洗任务（启动异步清洗） */
+    /** 创建清洗任务（启动异步清洗）。支持多选：sourcePaths 数组优先，回退 sourcePath 单路径 */
     @PostMapping
     public ApiResponse create(@RequestBody Map<String, Object> body) {
         if (jobService.isRunning()) {
             return ApiResponse.error("JOB_001", "已有清洗任务在运行中，请先完成或取消");
         }
-        String inputPath = (String) body.get("sourcePath");
         String outputPath = (String) body.get("outputPath");
-        if (inputPath == null || outputPath == null) {
-            return ApiResponse.error("CONFIG_002", "必须指定 sourcePath 和 outputPath");
+
+        // 多选输入：sourcePaths 数组优先，回退 sourcePath 单路径
+        List<String> sourcePaths = new ArrayList<>();
+        if (body.get("sourcePaths") instanceof List<?> list) {
+            for (Object o : list) {
+                if (o != null && !o.toString().isBlank()) sourcePaths.add(o.toString());
+            }
+        }
+        if (sourcePaths.isEmpty()) {
+            String single = (String) body.get("sourcePath");
+            if (single != null && !single.isBlank()) sourcePaths.add(single);
+        }
+        if (sourcePaths.isEmpty() || outputPath == null) {
+            return ApiResponse.error("CONFIG_002", "必须指定 sourcePaths（或 sourcePath）和 outputPath");
         }
         @SuppressWarnings("unchecked")
         List<String> sinkTypes = (List<String>) body.getOrDefault("sinks", List.of());
 
         // jobId 派生：同输入同配置复用，保证断点续跑
-        String jobId = jobService.createJobId(inputPath, String.join(",", sinkTypes));
-        jobService.startJob(jobId, inputPath, outputPath, sinkTypes);
-        return ApiResponse.ok(Map.of("jobId", jobId), "清洗已启动");
+        String jobId = jobService.createJobId(String.join(",", sourcePaths), String.join(",", sinkTypes));
+        jobService.startJob(jobId, sourcePaths, outputPath, sinkTypes);
+        return ApiResponse.ok(Map.of("jobId", jobId), "清洗已启动（" + sourcePaths.size() + " 个输入）");
     }
 
     /** 当前任务状态 */

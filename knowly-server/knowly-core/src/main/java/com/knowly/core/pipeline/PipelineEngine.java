@@ -123,21 +123,27 @@ public class PipelineEngine implements AutoCloseable {
     }
 
     /**
-     * 执行完整流水线。
+     * 执行完整流水线（单输入路径，兼容旧调用方）。
+     */
+    public PipelineStats execute(String jobId, Path inputDir, Path outputDir) {
+        return execute(jobId, List.of(inputDir), outputDir);
+    }
+
+    /**
+     * 执行完整流水线（多输入路径——Web 多选文件/目录混合场景）。
      *
-     * @param jobId     清洗任务 ID（由调用方派生——同输入同配置复用，保证断点续跑）
-     * @param inputDir  输入目录
+     * @param inputs 输入路径列表（文件或目录均可；目录递归扫描）
      * @param outputDir 输出目录
      * @return 处理结果统计
      */
-    public PipelineStats execute(String jobId, Path inputDir, Path outputDir) {
+    public PipelineStats execute(String jobId, List<Path> inputs, Path outputDir) {
         this.outputDir = outputDir;
         boolean hasEmbeddingSink = sinks.stream().anyMatch(ChunkSink::requiresEmbedding);
 
-        // 扫描文件
-        List<Path> files = scanFiles(inputDir);
+        // 扫描文件（所有输入路径合并去重）
+        List<Path> files = scanFiles(inputs);
         int total = files.size();
-        log.info("流水线启动: jobId={}, files={}, embed={}", jobId, total, embedWithLimit);
+        log.info("流水线启动: jobId={}, inputs={}, files={}, embed={}", jobId, inputs.size(), total, embedWithLimit);
         emit(new PipelineEvent.PipelineStarted(jobId, config != null && config.name() != null ? config.name() : "knowly", total));
 
         ErrorCollector errors = new ErrorCollector();
@@ -146,10 +152,10 @@ public class PipelineEngine implements AutoCloseable {
 
         // 串行回退：若并发配置为 0 或单文件，走简单串行（调试/测试更直观）
         if (concurrency == null || useSerialFallback(files.size())) {
-            return executeSerial(jobId, inputDir, outputDir, files, errors, succeeded, totalChunks, hasEmbeddingSink);
+            return executeSerial(jobId, inputs.get(0), outputDir, files, errors, succeeded, totalChunks, hasEmbeddingSink);
         }
 
-        return executeConcurrent(jobId, inputDir, outputDir, files, errors, succeeded, totalChunks, hasEmbeddingSink);
+        return executeConcurrent(jobId, inputs.get(0), outputDir, files, errors, succeeded, totalChunks, hasEmbeddingSink);
     }
 
     /** 决定是否走串行回退（小批量或调试场景） */
@@ -568,18 +574,21 @@ public class PipelineEngine implements AutoCloseable {
             ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".gif"
     );
 
-    private List<Path> scanFiles(Path inputDir) {
+    private List<Path> scanFiles(List<Path> inputs) {
         List<Path> files = new ArrayList<>();
-        try (var stream = Files.walk(inputDir)) {
-            stream.filter(Files::isRegularFile)
-                    .filter(f -> !f.getFileName().toString().startsWith("."))
-                    .filter(f -> {
-                        String name = f.getFileName().toString().toLowerCase();
-                        return SUPPORTED_EXTENSIONS.stream().anyMatch(name::endsWith);
-                    })
-                    .forEach(files::add);
-        } catch (Exception e) {
-            log.error("扫描目录失败: {}", inputDir, e);
+        for (Path input : inputs) {
+            try (var stream = Files.walk(input)) {
+                stream.filter(Files::isRegularFile)
+                        .filter(f -> !f.getFileName().toString().startsWith("."))
+                        .filter(f -> {
+                            String name = f.getFileName().toString().toLowerCase();
+                            return SUPPORTED_EXTENSIONS.stream().anyMatch(name::endsWith);
+                        })
+                        .filter(f -> !files.contains(f))  // 多路径可能重叠，去重
+                        .forEach(files::add);
+            } catch (Exception e) {
+                log.error("扫描目录失败: {}", input, e);
+            }
         }
         return files;
     }

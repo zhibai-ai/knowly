@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${KNOWLY_API_PORT:8095}  # 默认 8095（8080-8090 常被本机其他服务占用，可用环境变量覆盖）
   address: 127.0.0.1  # 仅监听本机
 
 spring:

@@ -122,10 +122,15 @@ export function isLoggedIn(): boolean {
 
 // ── 清洗任务 ──
 
-export async function createJob(sourcePath: string, outputPath: string, sinks: string[]): Promise<{ jobId: string }> {
+/** 创建清洗任务。支持多选：传数组时发 sourcePaths（Web 多选场景）；单个保持 sourcePath（兼容） */
+export async function createJob(sourcePaths: string | string[], outputPath: string, sinks: string[]): Promise<{ jobId: string }> {
+  const arr = Array.isArray(sourcePaths) ? sourcePaths : [sourcePaths]
+  const body = arr.length === 1
+    ? { sourcePath: arr[0], outputPath, sinks }
+    : { sourcePaths: arr, outputPath, sinks }
   return request('/jobs', {
     method: 'POST',
-    body: JSON.stringify({ sourcePath, outputPath, sinks }),
+    body: JSON.stringify(body),
   })
 }
 

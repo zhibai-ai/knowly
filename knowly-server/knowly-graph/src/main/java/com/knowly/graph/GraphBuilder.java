@@ -32,9 +32,22 @@ public class GraphBuilder {
     private final Neo4jGraphStore graphStore;
 
     public GraphBuilder(String dashscopeApiKey, String neo4jUri, String neo4jUser, String neo4jPassword) {
+        this(dashscopeApiKey, neo4jUri, neo4jUser, neo4jPassword, null, null);
+    }
+
+    /**
+     * 自定义实体/关系类型的图谱构建。
+     *
+     * @param entityTypes   实体类型（null 用默认通用类型；领域专用类型如易卦的「卦象/象征物」通过此注入）
+     * @param relationTypes 关系类型（null 用默认通用类型）
+     */
+    public GraphBuilder(String dashscopeApiKey, String neo4jUri, String neo4jUser, String neo4jPassword,
+                        List<String> entityTypes, List<String> relationTypes) {
         var llm = new DashScopeLlmProvider(dashscopeApiKey);
-        this.entityExtractor = new LlmEntityExtractor(llm);
-        this.relationExtractor = new LlmRelationExtractor(llm);
+        this.entityExtractor = entityTypes != null
+                ? new LlmEntityExtractor(llm, entityTypes) : new LlmEntityExtractor(llm);
+        this.relationExtractor = relationTypes != null
+                ? new LlmRelationExtractor(llm, relationTypes) : new LlmRelationExtractor(llm);
         this.graphStore = new Neo4jGraphStore(neo4jUri, neo4jUser, neo4jPassword);
     }
 
