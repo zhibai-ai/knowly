@@ -456,6 +456,16 @@ public class PipelineEngine implements AutoCloseable {
 
     private void doSink(String jobId, RawDocument doc, List<TextChunk> chunks,
                         ErrorCollector errors, boolean hasEmbeddingSink) {
+        // 产出端质量门（守一待办12根治项）：替换符密度 >2% 或 OLE 二进制特征 → 拒入。
+        // 乱码产出比消费端防御更应该在源头掐死（曾致 65 本乱码入库 8,394 条污染）。
+        if (isGarbledOutput(chunks)) {
+            log.error("产出质量门拦截（疑似乱码，拒入所有 sink）: {}, doc={}",
+                    doc.sourcePath(), doc.id());
+            errors.record(doc.sourcePath(), doc.id(), ProcessStage.CLEAN.name(),
+                    "GARBLED_OUTPUT", "替换符密度>2%或含OLE二进制特征，已拒入（源头防乱码）");
+            return;
+        }
+
         // 先写文本类 sink（Markdown/JSONL）
         for (ChunkSink sink : sinks) {
             try {
@@ -484,6 +494,26 @@ public class PipelineEngine implements AutoCloseable {
 
         markStage(jobId, Path.of(doc.sourcePath()), doc.contentHash(), doc.id(),
                 ProcessStage.SINK, StageStatus.SUCCESS);
+    }
+
+    /**
+     * 产出端乱码检测：替换符密度 >2% 或含 OLE2 二进制特征（Word 直读的标志）→ 判乱码。
+     * 在 sink 写入前调用，乱码文档整体拒入并记入错误报告。
+     */
+    static boolean isGarbledOutput(List<TextChunk> chunks) {
+        if (chunks == null || chunks.isEmpty()) return false;
+        long total = 0, replacement = 0;
+        for (TextChunk c : chunks) {
+            String t = c.text();
+            if (t == null || t.isEmpty()) continue;
+            total += t.length();
+            for (int i = 0; i < t.length(); i++) {
+                if (t.charAt(i) == '\uFFFD') replacement++;
+            }
+            // OLE2 结构特征：Word 二进制被直读的典型标志（守一验收实证）
+            if (t.contains("bjbj")) return true;
+        }
+        return total > 0 && (double) replacement / total > 0.02;
     }
 
     /** 批量 embedding（embeddingProvider 内部已有 RateLimiter 限流） */

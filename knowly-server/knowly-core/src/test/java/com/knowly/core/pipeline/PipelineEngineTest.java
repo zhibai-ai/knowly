@@ -25,7 +25,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * {@link PipelineEngine} 集成测试。
+ * {@link PipelineEngine}
+ 集成测试。
  *
  * <p>用 fake 组件（不依赖 Tika/OCR/embed）验证引擎的核心行为：
  * 失败隔离、并发正确性、断点续跑跳过、空输入、产出统计。
@@ -272,5 +273,19 @@ class PipelineEngineTest {
         Path f = tempDir.resolve(name);
         Files.writeString(f, content);
         return f;
+    }
+
+    @org.junit.jupiter.api.Test
+    void garbled_output_detector_rejects_binary_and_replacement_heavy() {
+        // OLE 二进制特征
+        var bin = new com.knowly.core.model.TextChunk("id1", "d1", "/a.doc", "bjbj\u0000Word垃圾", 0, null);
+        org.assertj.core.api.Assertions.assertThat(com.knowly.core.pipeline.PipelineEngine.isGarbledOutput(java.util.List.of(bin))).isTrue();
+        // 替换符密度 >2%
+        var garbledText = "正常开头" + "\uFFFD".repeat(30);
+        var heavy = new com.knowly.core.model.TextChunk("id2", "d2", "/b.doc", garbledText, 0, null);
+        org.assertj.core.api.Assertions.assertThat(com.knowly.core.pipeline.PipelineEngine.isGarbledOutput(java.util.List.of(heavy))).isTrue();
+        // 正常文本放行
+        var ok = new com.knowly.core.model.TextChunk("id3", "d3", "/c.txt", "这是正常的中文内容，密度极低。", 0, null);
+        org.assertj.core.api.Assertions.assertThat(com.knowly.core.pipeline.PipelineEngine.isGarbledOutput(java.util.List.of(ok))).isFalse();
     }
 }
